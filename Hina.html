@@ -97,24 +97,26 @@
         player.animationState.setAnimation(1, CONFIG.emoIdle, true);
     }
 
-    // 2. [단독 행동 함수] Action, Signature 등
-    // 요구사항: 이게 실행될 땐 Emo 트랙이 방해하면 안 됨 -> Track 1 비우기
+  // [수정된 버전] 액션 재생 후 표정까지 자동으로 복구하는 함수
     function playAction(animName) {
         if (!player) return;
         
-        // Track 0: 액션 1회 재생 (loop: false)
-        player.animationState.setAnimation(0, animName, false);
+        // 1. Track 0: 액션 재생 시작
+        // setAnimation은 실행된 애니메이션의 정보(Entry)를 반환해줍니다.
+        const entry = player.animationState.setAnimation(0, animName, false);
         
-        // Track 0 재생이 끝나면 자동으로 Idle로 돌아가게 예약 (선택사항, 필요 없으면 삭제 가능)
+        // 2. 지금 튼 액션이 몇 초짜리인지 알아냅니다. (자동 계산)
+        const actionDuration = entry.animation.duration;
+
+        // 3. Track 0: 액션이 끝나면 바로 Idle로 돌아오게 예약
         player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
 
-        // ★ 핵심: Track 1 (표정) 비우기
-        // Action 동작에 포함된 표정이 나와야 하므로 0.1초 동안 부드럽게 섞이며 사라짐
+        // 4. Track 1: 액션 중에는 표정을 끕니다 (얼굴 겹침 방지)
         player.animationState.setEmptyAnimation(1, 0.1);
         
-        // (선택) 액션이 끝나고 Idle로 돌아갈 때 표정도 Emo_Idle로 돌아오게 예약하고 싶다면?
-        // 아래 주석을 해제하세요. (Action 길이만큼 delay 필요)
-        // player.animationState.addAnimation(1, CONFIG.emoIdle, true, 0); 
+        // ★ 핵심 해결책: 알아낸 액션 시간(actionDuration)만큼 기다렸다가 표정도 복귀시킵니다!
+        // addAnimation의 4번째 인자가 '지연 시간(delay)'입니다.
+        player.animationState.addAnimation(1, CONFIG.emoIdle, true, actionDuration);
     }
 
     // 3. [감정 표현 함수]
