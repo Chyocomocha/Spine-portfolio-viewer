@@ -3,125 +3,65 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spine Web Player</title>
-<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.43*/dist/iife/spine-player.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.43*/dist/spine-player.css">
+<title>Spine Debug Viewer</title>
+<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.43/dist/iife/spine-player.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.43/dist/spine-player.css">
 <style>
-    body { margin: 0; padding: 0; background: #191919; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-    
-    /* 플레이어 영역 */
-    #player-container { width: 100%; height: 70vh; margin-bottom: 10px; }
-
-    /* 컨트롤 패널 스타일 */
-    .control-panel { width: 95%; max-width: 800px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
-    .track-group { background: #333; padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
-    .group-title { font-weight: bold; margin-bottom: 10px; color: #aaa; text-transform: uppercase; font-size: 0.9em; border-bottom: 1px solid #555; padding-bottom: 5px; }
-    
-    /* 버튼 그리드 */
-    .btn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
-    
-    button { 
-        padding: 10px 5px; cursor: pointer; 
-        background: #4a4a4a; color: white; border: none; border-radius: 4px; 
-        font-size: 0.9em; transition: 0.2s;
-    }
-    button:hover { background: #666; transform: translateY(-2px); }
-    button:active { transform: translateY(0px); }
-    
-    .btn-idle { background: #2d6da3; }
-    .btn-action { background: #a33e2d; }
+    body { margin: 0; padding: 0; background: #333; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    #player-container { width: 100%; height: 90vh; }
 </style>
 </head>
 <body>
 
 <div id="player-container"></div>
 
-<div class="control-panel">
-    <div class="track-group">
-        <div class="group-title">Base Actions</div>
-        <div class="btn-grid">
-            <button class="btn-idle" onclick="resetToIdle()">Return Idle</button>
-            
-            <button class="btn-action" onclick="playAction('Action_001')">Action 1</button>
-            <button class="btn-action" onclick="playAction('Action_002')">Action 2</button>
-            <button class="btn-action" onclick="playAction('Signature')">Signature</button>
-        </div>
-    </div>
-
-    <div class="track-group">
-        <div class="group-title">Emotions</div>
-        <div class="btn-grid">
-            <button onclick="playEmo('Emo_Idle', true)">Emo Idle</button>
-            
-            <button onclick="playEmo('Emo_001', false)">Emo 1</button>
-            <button onclick="playEmo('Emo_002', false)">Emo 2</button>
-            <button onclick="playEmo('Emo_003', false)">Emo 3</button>
-            <button onclick="playEmo('Emo_004', false)">Emo 4</button>
-            <button onclick="playEmo('Emo_005', false)">Emo 5</button>
-            <button onclick="playEmo('Emo_006', false)">Emo 6</button>
-        </div>
-    </div>
-</div>
-
 <script>
-    let player;
-
-    // ▼▼▼ [수정필요] 파일 경로 및 애니메이션 이름 설정 ▼▼▼
+    // ▼▼▼ 여기 파일 이름만 본인 것과 똑같은지 봐주세요 ▼▼▼
     const CONFIG = {
-        // 본인 파일명으로 수정 (대소문자 정확하게!)
         skelUrl: "./LD_Narin.skel.bytes", 
-        atlasUrl: "./LD_Narin.atlas.txt", 
-        
-        // 스파인 내부의 애니메이션 이름
-        baseIdle: "Idle",        
-        emoIdle: "Emo_Idle"      
+        atlasUrl: "./LD_Narin.atlas.txt",
+        baseIdle: "Idle",
+        emoIdle: "Emo_Idle"
     };
     // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     new spine.SpinePlayer("player-container", {
         skelUrl: CONFIG.skelUrl,
         atlasUrl: CONFIG.atlasUrl,
-        showControls: false, // 필요하면 true로 켜서 확인 가능
-        backgroundColor: "#191919",
+        
+        // 1. 투명도 설정 (검은 화면 해결책 1순위)
+        // 이미지가 안 보이면 이걸 true로 바꿔봐야 하는데, 일단 false로 둡니다.
+        premultipliedAlpha: false, 
+
+        // 2. 컨트롤 바 강제 표시
+        showControls: true,
+
+        // 3. 디버그 모드 (뼈대 강제로 보여주기)
+        // 캐릭터가 투명인간이라도 뼈는 보이게 만듭니다.
+        debug: {
+            bones: true, 
+            regions: true,
+            bounds: true
+        },
+
+        backgroundColor: "#333", // 배경색 (회색)
         alpha: true,
-        success: function (p) {
-            player = p;
-            resetToIdle(); // 로딩 완료 시 Idle 상태로 시작
+        
+        success: function (player) {
+            console.log("로딩 성공! 애니메이션 시작");
+            try {
+                // 시작하자마자 Idle 재생 시도
+                player.animationState.setAnimation(0, CONFIG.baseIdle, true);
+                player.animationState.setAnimation(1, CONFIG.emoIdle, true);
+            } catch (e) {
+                console.error("애니메이션 이름이 틀렸을 수 있습니다:", e);
+            }
+        },
+        error: function (player, error) {
+            console.error("플레이어 에러 발생:", error);
+            alert("에러가 발생했습니다. F12 콘솔을 확인해주세요.");
         }
     });
-
-    // 1. [Idle 복귀 함수] 몸과 표정 모두 초기화
-    function resetToIdle() {
-        if (!player) return;
-        player.animationState.setAnimation(0, CONFIG.baseIdle, true);
-        player.animationState.setAnimation(1, CONFIG.emoIdle, true);
-    }
-
-    // 2. [액션 재생 함수] ★여기가 핵심 수정됨★
-    function playAction(animName) {
-        if (!player) return;
-        
-        // (1) Track 0: 액션 시작! 동시에 해당 동작 정보를 entry 변수에 저장
-        const entry = player.animationState.setAnimation(0, animName, false);
-        
-        // (2) 해당 액션이 몇 초짜리인지 알아냄
-        const actionTime = entry.animation.duration;
-
-        // (3) Track 0: 액션이 끝나면 바로 Idle로 돌아오도록 예약
-        player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
-
-        // (4) Track 1: 액션 중엔 표정 끄기 (얼굴 겹침 방지)
-        player.animationState.setEmptyAnimation(1, 0.1);
-        
-        // (5) Track 1: ★계산해둔 시간(actionTime)만큼 기다렸다가 표정(Emo_Idle) 복귀★
-        player.animationState.addAnimation(1, CONFIG.emoIdle, true, actionTime);
-    }
-
-    // 3. [표정 재생 함수] 루프 or 1회성(멈춤)
-    function playEmo(animName, loop) {
-        if (!player) return;
-        player.animationState.setAnimation(1, animName, loop);
-    }
 </script>
 
 </body>
