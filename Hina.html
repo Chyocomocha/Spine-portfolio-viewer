@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spine Web Player</title>
+<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.43/dist/iife/spine-player.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.19/dist/spine-player.css">
+<style>
+    body { margin: 0; padding: 0; background: #191919; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+    
+    /* 플레이어 영역 */
+    #player-container { width: 100%; height: 70vh; margin-bottom: 10px; }
+
+    /* 컨트롤 패널 스타일 */
+    .control-panel { width: 95%; max-width: 800px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+    .track-group { background: #333; padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
+    .group-title { font-weight: bold; margin-bottom: 10px; color: #aaa; text-transform: uppercase; font-size: 0.9em; border-bottom: 1px solid #555; padding-bottom: 5px; }
+    
+    /* 버튼 그리드 */
+    .btn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+    
+    button { 
+        padding: 10px 5px; cursor: pointer; 
+        background: #4a4a4a; color: white; border: none; border-radius: 4px; 
+        font-size: 0.9em; transition: 0.2s;
+    }
+    button:hover { background: #666; transform: translateY(-2px); }
+    button:active { transform: translateY(0px); }
+    
+    /* 특정 버튼 색상 강조 */
+    .btn-idle { background: #2d6da3; }
+    .btn-action { background: #a33e2d; }
+</style>
+</head>
+<body>
+
+<div id="player-container"></div>
+
+<div class="control-panel">
+    <div class="track-group">
+        <div class="group-title">Base Actions (단독 재생)</div>
+        <div class="btn-grid">
+            <button class="btn-idle" onclick="resetToIdle()">Return Idle</button>
+            
+            <button class="btn-action" onclick="playAction('Action_001')">Action 1</button>
+            <button class="btn-action" onclick="playAction('Action_002')">Action 2</button>
+            <button class="btn-action" onclick="playAction('Signature')">Signature</button>
+        </div>
+    </div>
+
+    <div class="track-group">
+        <div class="group-title">Emotions (동시 재생)</div>
+        <div class="btn-grid">
+            <button onclick="playEmo('Emo_Idle', true)">Emo Idle (Loop)</button>
+            
+            <button onclick="playEmo('Emo_001', false)">Emo 1</button>
+            <button onclick="playEmo('Emo_002', false)">Emo 2</button>
+            <button onclick="playEmo('Emo_003', false)">Emo 3</button>
+            <button onclick="playEmo('Emo_004', false)">Emo 4</button>
+            <button onclick="playEmo('Emo_005', false)">Emo 5</button>
+            <button onclick="playEmo('Emo_006', false)">Emo 6</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let player;
+
+    // ▼▼▼ [수정필요] 파일 경로 및 애니메이션 이름 설정 ▼▼▼
+    const CONFIG = {
+        skelUrl: "./LD_Hina.skel.bytes",   // 본인 json 파일명
+        atlasUrl: "./LD_Hina.atlas.txt", // 본인 atlas 파일명
+        baseIdle: "Idle",              // 기본 대기 모션 이름
+        emoIdle: "Emo_Idle"            // 기본 표정 모션 이름
+    };
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        showControls: false, // 기본 바 숨김
+        backgroundColor: "#191919",
+        alpha: true,
+        success: function (p) {
+            player = p;
+            resetToIdle(); // 로딩 완료 시 Idle 상태로 시작
+        }
+    });
+
+    // 1. [Idle 복귀 함수] 몸은 Idle, 표정은 Emo_Idle로 초기화
+    function resetToIdle() {
+        if (!player) return;
+        // Track 0: Idle 루프
+        player.animationState.setAnimation(0, CONFIG.baseIdle, true);
+        // Track 1: Emo_Idle 루프 (Action 하느라 꺼졌을 수도 있으니 다시 킴)
+        player.animationState.setAnimation(1, CONFIG.emoIdle, true);
+    }
+
+    // 2. [단독 행동 함수] Action, Signature 등
+    // 요구사항: 이게 실행될 땐 Emo 트랙이 방해하면 안 됨 -> Track 1 비우기
+    function playAction(animName) {
+        if (!player) return;
+        
+        // Track 0: 액션 1회 재생 (loop: false)
+        player.animationState.setAnimation(0, animName, false);
+        
+        // Track 0 재생이 끝나면 자동으로 Idle로 돌아가게 예약 (선택사항, 필요 없으면 삭제 가능)
+        player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
+
+        // ★ 핵심: Track 1 (표정) 비우기
+        // Action 동작에 포함된 표정이 나와야 하므로 0.1초 동안 부드럽게 섞이며 사라짐
+        player.animationState.setEmptyAnimation(1, 0.1);
+        
+        // (선택) 액션이 끝나고 Idle로 돌아갈 때 표정도 Emo_Idle로 돌아오게 예약하고 싶다면?
+        // 아래 주석을 해제하세요. (Action 길이만큼 delay 필요)
+        // player.animationState.addAnimation(1, CONFIG.emoIdle, true, 0); 
+    }
+
+    // 3. [감정 표현 함수]
+    // 요구사항: 루프면 계속 돌고, 아니면 1회 재생 후 멈춤(Hold)
+    function playEmo(animName, loop) {
+        if (!player) return;
+        
+        // Track 0(몸)은 건드리지 않고 Track 1(표정)만 교체
+        // loop가 false면 스파인은 자동으로 마지막 프레임을 유지함 (Hold)
+        player.animationState.setAnimation(1, animName, loop);
+    }
+</script>
+
+</body>
+</html>
