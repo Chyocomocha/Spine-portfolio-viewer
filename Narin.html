@@ -7,26 +7,17 @@
 <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.43/dist/iife/spine-player.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.43/dist/spine-player.css">
 <style>
-    /* 배경 투명 (노션 등 어디에 올려도 자연스럽게) */
+    /* 배경 투명 (노션에서는 검은색, 브라우저에서는 흰색으로 보임) */
     body { margin: 0; padding: 0; background: transparent; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
-    
-    /* 플레이어 영역 */
     #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
 
-    /* 컨트롤 패널 (버튼들 디자인) */
+    /* 컨트롤 패널 스타일 */
     .control-panel { width: 95%; max-width: 800px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
     .track-group { background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
     .group-title { font-weight: bold; margin-bottom: 10px; color: #ccc; text-transform: uppercase; font-size: 0.85em; border-bottom: 1px solid #555; padding-bottom: 5px; }
-    
     .btn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
-    
-    button { 
-        padding: 8px 5px; cursor: pointer; 
-        background: #444; color: white; border: 1px solid #555; border-radius: 4px; 
-        font-size: 0.85em; transition: 0.2s;
-    }
+    button { padding: 8px 5px; cursor: pointer; background: #444; color: white; border: 1px solid #555; border-radius: 4px; font-size: 0.85em; transition: 0.2s; }
     button:hover { background: #666; transform: translateY(-2px); border-color: #888; }
-    button:active { transform: translateY(0px); }
     
     .btn-idle { background: #2b5c8a; border-color: #3e7cb3; }
     .btn-action { background: #8a2b2b; border-color: #b33e3e; }
@@ -41,13 +32,11 @@
         <div class="group-title">Base Actions</div>
         <div class="btn-grid">
             <button class="btn-idle" onclick="resetToIdle()">Return Idle</button>
-            
             <button class="btn-action" onclick="playAction('Action_001')">Action 1</button>
             <button class="btn-action" onclick="playAction('Action_002')">Action 2</button>
             <button class="btn-action" onclick="playAction('Signature')">Signature</button>
         </div>
     </div>
-
     <div class="track-group">
         <div class="group-title">Emotions</div>
         <div class="btn-grid">
@@ -65,65 +54,50 @@
 <script>
     let player;
 
-    // ▼▼▼ 파일명 설정 (수정 금지: 아까 성공한 파일명 그대로 둠) ▼▼▼
     const CONFIG = {
         skelUrl: "./LD_Narin.skel.bytes", 
         atlasUrl: "./LD_Narin.atlas.txt",
-        
-        // 애니메이션 이름 설정
         baseIdle: "Idle",        
         emoIdle: "Emo_Idle"      
     };
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     new spine.SpinePlayer("player-container", {
         skelUrl: CONFIG.skelUrl,
         atlasUrl: CONFIG.atlasUrl,
         
-        // 1. 화면 표시 설정
-        showControls: false,          // 하단 바 숨김 (깔끔하게)
-        backgroundColor: "#00000000", // 배경 완전 투명
-        alpha: true,                  // 투명도 허용
+        showControls: false,          
+        backgroundColor: "#00000000", 
+        alpha: true,                  
         
-        // 2. ★성공한 설정★ (이게 true여야 님이 쓰신 파일이 보입니다)
-        premultipliedAlpha: true,
+        // ★ 핵심 수정: true로 해서 안 보였다면 false가 정답입니다.
+        premultipliedAlpha: false,
 
         success: function (p) {
             player = p;
-            console.log("로딩 성공 (버전: 4.2.43)");
-            resetToIdle(); // 로딩되자마자 Idle 재생
+            // 로딩 성공 로그
+            console.log("Success! Version 4.2.43");
+            resetToIdle(); 
         },
         error: function (p, e) {
-            console.error("에러 발생:", e);
+            console.error("Error:", e);
         }
     });
 
-    // --- 기능 구현부 (수정할 필요 없음) ---
-
-    // 1. 초기화 (Idle 복귀)
     function resetToIdle() {
         if (!player) return;
         player.animationState.setAnimation(0, CONFIG.baseIdle, true);
         player.animationState.setAnimation(1, CONFIG.emoIdle, true);
     }
 
-    // 2. 액션 재생 (자동으로 시간 계산해서 표정 복귀)
     function playAction(animName) {
         if (!player) return;
-        
-        // 동작 실행 및 시간 측정
         const entry = player.animationState.setAnimation(0, animName, false);
         const duration = entry.animation.duration;
-
-        // 동작 끝나면 Idle 예약
         player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
-
-        // 동작 중 표정 끄기 -> 시간 지나면 표정 복귀 예약
         player.animationState.setEmptyAnimation(1, 0.1);
         player.animationState.addAnimation(1, CONFIG.emoIdle, true, duration);
     }
 
-    // 3. 표정 재생
     function playEmo(animName, loop) {
         if (!player) return;
         player.animationState.setAnimation(1, animName, loop);
