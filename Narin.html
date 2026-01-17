@@ -7,11 +7,11 @@
 <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.43/dist/iife/spine-player.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.43/dist/spine-player.css">
 <style>
-    /* 배경을 진한 회색(#222)으로 설정해서 캐릭터가 잘 보이게 함 */
+    /* 배경 진한 회색 (캐릭터 확인용) */
     body { margin: 0; padding: 0; background: #222; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
     #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
 
-    /* 컨트롤 패널 스타일 */
+    /* 컨트롤 패널 */
     .control-panel { width: 95%; max-width: 800px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
     .track-group { background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
     .group-title { font-weight: bold; margin-bottom: 10px; color: #ccc; text-transform: uppercase; font-size: 0.85em; border-bottom: 1px solid #555; padding-bottom: 5px; }
@@ -68,12 +68,14 @@
         
         showControls: false,          
         
-        // ★ 핵심 변경: 배경색 지정 + 투명 기능 끄기
+        // 배경 진한 회색 (확인 후 나중에 투명으로 바꾸세요)
         backgroundColor: "#222222", 
-        alpha: false,                  
+        alpha: true,                  
         
-        // 투명도 설정 (아까 false로 시도 중이었음)
-        premultipliedAlpha: false,
+        // ★★★ 여기가 문제입니다 ★★★
+        // 아까 성공했을 때 이 값이 true였습니다. 제가 멍청하게 false로 바꿨었습니다.
+        // 다시 true로 돌려놓습니다.
+        premultipliedAlpha: true,
 
         success: function (p) {
             player = p;
