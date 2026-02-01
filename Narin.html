@@ -53,9 +53,11 @@
 
 <script>
     let player;
-    // 부드러운 전환 시간 (0.2초)
+    // 믹스 시간
     const MIX_DURATION = 0.2;
-    // 타이머 관리용 변수
+    // 들어갈 때 지연 시간 (성공했던 값 유지)
+    const START_DELAY = 0.1;
+    
     let faceTimer = null;
 
     const CONFIG = {
@@ -75,9 +77,8 @@
 
         success: function (p) {
             player = p;
-            // 기본 믹스 설정
             player.animationState.data.defaultMix = MIX_DURATION;
-            console.log("로딩 성공 (Start Hold & End Sync 적용)");
+            console.log("로딩 성공 (Early Return Logic)");
             resetToIdle(); 
         },
         error: function (p, e) {
@@ -88,46 +89,41 @@
     // --- 기능 함수 ---
     function resetToIdle() {
         if (!player) return;
-        // 기존 예약된 타이머가 있다면 취소 (광클 방지)
         if (faceTimer) clearTimeout(faceTimer);
-        
         player.animationState.setAnimation(0, CONFIG.baseIdle, true);
         player.animationState.setAnimation(1, CONFIG.emoIdle, true);
     }
 
     function playAction(animName) {
         if (!player) return;
-        
-        // 광클 시 이전 타이머 취소
         if (faceTimer) clearTimeout(faceTimer);
 
-        // 1. 몸 동작 실행 (Track 0)
-        // 몸은 0.2초 동안 서서히 변합니다.
+        // 1. 몸 동작 실행
         const entry = player.animationState.setAnimation(0, animName, false);
         const actionDuration = entry.animation.duration;
         
         // 몸 동작 끝나면 Idle 예약
         player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
 
-        // 2. 얼굴 표정 처리 (Track 1)
+        // 2. 얼굴 표정 처리 (핵심!)
         
-        // ★★★ 핵심 수정 1: 들어갈 때 (Start) ★★★
-        // "바로 표정을 지우지 말고, 0.1초만 기다려!"
-        // 몸이 어느 정도 변한 뒤에 표정을 바꿔야 '기본 얼굴'이 안 보입니다.
+        // [시작] 0.1초(100ms) 늦게 표정을 바꿈 -> 들어갈 때 디폴트 얼굴 방지 (성공함)
         faceTimer = setTimeout(() => {
-            // 0.1초 뒤에 현재 표정을 부드럽게(0.2s) 지웁니다.
-            // 이때는 이미 몸이 액션 동작을 하고 있어서 '액션 표정'이 드러납니다.
             player.animationState.setEmptyAnimation(1, MIX_DURATION);
             
-            // ★★★ 핵심 수정 2: 나올 때 (End) ★★★
-            // 아까 성공했던 로직: 액션 끝나기 0.2초 전에 미리 복귀 예약
-            // (이미 0.1초가 지났으므로 계산에서 고려)
-            let returnDelay = actionDuration - MIX_DURATION - 0.1;
+            // [끝] 돌아오는 타이밍 계산
+            // 공식: 전체시간 - 믹스시간 - 시작지연시간 - ★추가 안전장치(0.15초)★
+            // 즉, 몸 동작이 끝나기 훨씬 전(약 0.45초 전)부터 표정 복귀를 시작합니다.
+            // 이렇게 하면 몸이 멈출 때쯤엔 이미 완벽하게 Idle 표정이 되어 있습니다.
+            
+            let returnDelay = actionDuration - MIX_DURATION - START_DELAY - 0.15;
+            
+            // 동작이 너무 짧아서 시간이 마이너스가 되면 즉시 복귀
             if (returnDelay < 0) returnDelay = 0;
 
             player.animationState.addAnimation(1, CONFIG.emoIdle, true, returnDelay);
             
-        }, 100); // 100ms = 0.1초 대기
+        }, (START_DELAY * 1000)); // 100ms 대기
     }
 
     function playEmo(animName, loop) {
