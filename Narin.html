@@ -58,4 +58,66 @@
 
     const CONFIG = {
         skelUrl: "./LD_Narin.skel.bytes", 
-        atlasUrl: "./
+        atlasUrl: "./LD_Narin.atlas.txt",
+        baseIdle: "Idle",        
+        emoIdle: "Emo_Idle"      
+    };
+
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        showControls: false,          
+        backgroundColor: "#00000000", 
+        alpha: true,                  
+        premultipliedAlpha: true,
+
+        success: function (p) {
+            player = p;
+            
+            // 1. 기본 믹스 설정 (부드러운 전환)
+            player.animationState.data.defaultMix = MIX_DURATION;
+
+            console.log("로딩 성공 (Sync Adjusted)");
+            resetToIdle(); 
+        },
+        error: function (p, e) {
+            console.error("Error:", e);
+        }
+    });
+
+    // --- 기능 함수 ---
+    function resetToIdle() {
+        if (!player) return;
+        player.animationState.setAnimation(0, CONFIG.baseIdle, true);
+        player.animationState.setAnimation(1, CONFIG.emoIdle, true);
+    }
+
+    function playAction(animName) {
+        if (!player) return;
+        
+        // 1. 액션 실행
+        const entry = player.animationState.setAnimation(0, animName, false);
+        const actionDuration = entry.animation.duration;
+        
+        // 2. 액션 후 Idle 예약 (자동 Mix 적용됨)
+        player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
+
+        // 3. 표정 처리 (여기가 핵심)
+        // 기존: actionDuration 만큼 다 기다렸다가 표정 변경 -> 박자 늦음
+        // 수정: (actionDuration - 믹스시간) 만큼만 기다림 -> 몸이랑 같이 변함
+        
+        player.animationState.setEmptyAnimation(1, MIX_DURATION);
+        
+        // ★ 타이밍 계산: 몸이 섞이는 시간에 맞춰 표정도 같이 들어오게 함
+        const delayTime = Math.max(0, actionDuration - MIX_DURATION);
+        player.animationState.addAnimation(1, CONFIG.emoIdle, true, delayTime);
+    }
+
+    function playEmo(animName, loop) {
+        if (!player) return;
+        player.animationState.setAnimation(1, animName, loop);
+    }
+</script>
+
+</body>
+</html>
