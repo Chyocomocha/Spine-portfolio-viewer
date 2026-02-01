@@ -65,21 +65,19 @@
     new spine.SpinePlayer("player-container", {
         skelUrl: CONFIG.skelUrl,
         atlasUrl: CONFIG.atlasUrl,
-        
         showControls: false,          
         backgroundColor: "#00000000", 
         alpha: true,                  
-        premultipliedAlpha: true, // 아까 성공한 설정 유지
+        premultipliedAlpha: true,
 
         success: function (p) {
             player = p;
             
-            // ★★★ [추가된 부분] 믹스(Mix) 시간 설정 ★★★
-            // 모든 애니메이션 전환 시 0.2초 동안 부드럽게 섞이게 만듭니다.
-            // 이걸 넣으면 표정이 뚝 끊기는 현상이 사라집니다.
+            // ★★★ 핵심 수정 1: 기본 믹스 시간 설정 ★★★
+            // 모든 동작 사이를 0.2초 동안 부드럽게 연결합니다.
             player.animationState.data.defaultMix = 0.2;
 
-            console.log("로딩 성공 (Mix 적용됨)");
+            console.log("로딩 성공 (Auto Mix: 0.2s)");
             resetToIdle(); 
         },
         error: function (p, e) {
@@ -96,13 +94,22 @@
 
     function playAction(animName) {
         if (!player) return;
+        
+        // 1. 몸 동작 실행 (Track 0)
         const entry = player.animationState.setAnimation(0, animName, false);
         const duration = entry.animation.duration;
         
-        // 믹스 값이 적용되어 있어서 이제 자연스럽게 연결됩니다.
+        // 몸 동작 끝나면 Idle 예약
         player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
 
-        player.animationState.setEmptyAnimation(1, 0.1);
+        // 2. 얼굴 표정 처리 (Track 1)
+        // ★★★ 핵심 수정 2: 표정을 끌 때도 부드럽게, 켤 때도 부드럽게 ★★★
+        
+        // (1) 현재 표정을 0.2초 동안 부드럽게 지웁니다 (액션 표정이 나오도록)
+        player.animationState.setEmptyAnimation(1, 0.2);
+        
+        // (2) 액션이 끝날 때쯤 다시 기본 표정(Emo_Idle)을 부드럽게 불러옵니다.
+        // addAnimation은 defaultMix(0.2)를 따르므로 자동으로 부드러워집니다.
         player.animationState.addAnimation(1, CONFIG.emoIdle, true, duration);
     }
 
