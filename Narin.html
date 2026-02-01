@@ -7,6 +7,7 @@
 <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/iife/spine-player.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/spine-player.css">
 <style>
+    /* 배경 투명 */
     body { margin: 0; padding: 0; background: transparent; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
     #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
 
@@ -53,8 +54,12 @@
 <script>
     let player;
     
-    // ★ 믹스 타임 설정 (이 숫자로 타이밍을 조절합니다)
+    // ★ 1. 믹스 시간 (부드럽게 변하는 시간)
     const MIX_DURATION = 0.2;
+    
+    // ★ 2. 안전 시간 (이만큼 얼굴을 더 빨리 불러옵니다) - 중요!
+    // 0.1초 정도 미리 불러와서 '디폴트 얼굴'이 보일 틈을 없앱니다.
+    const SAFETY_BUFFER = 0.15; 
 
     const CONFIG = {
         skelUrl: "./LD_Narin.skel.bytes", 
@@ -74,10 +79,10 @@
         success: function (p) {
             player = p;
             
-            // 1. 기본 믹스 설정 (부드러운 전환)
+            // 기본 믹스 설정
             player.animationState.data.defaultMix = MIX_DURATION;
 
-            console.log("로딩 성공 (Sync Adjusted)");
+            console.log("로딩 성공 (Buffer: " + SAFETY_BUFFER + "s)");
             resetToIdle(); 
         },
         error: function (p, e) {
@@ -95,21 +100,25 @@
     function playAction(animName) {
         if (!player) return;
         
-        // 1. 액션 실행
+        // 1. 몸 동작 실행 (Track 0)
         const entry = player.animationState.setAnimation(0, animName, false);
         const actionDuration = entry.animation.duration;
         
-        // 2. 액션 후 Idle 예약 (자동 Mix 적용됨)
+        // 몸 동작 끝나면 Idle 예약 (자동 Mix)
         player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
 
-        // 3. 표정 처리 (여기가 핵심)
-        // 기존: actionDuration 만큼 다 기다렸다가 표정 변경 -> 박자 늦음
-        // 수정: (actionDuration - 믹스시간) 만큼만 기다림 -> 몸이랑 같이 변함
-        
+        // 2. 얼굴 표정 처리 (Track 1)
+        // 시작할 때: 현재 표정을 부드럽게 지워서 액션 표정이 나오게 함
         player.animationState.setEmptyAnimation(1, MIX_DURATION);
         
-        // ★ 타이밍 계산: 몸이 섞이는 시간에 맞춰 표정도 같이 들어오게 함
-        const delayTime = Math.max(0, actionDuration - MIX_DURATION);
+        // ★★★ 핵심 수정: 타이밍 계산 ★★★
+        // (전체시간) - (믹스시간) - (안전시간)
+        // 믹스되는 시간보다 0.15초 더 빨리 표정을 투입합니다.
+        // 이렇게 하면 몸 동작이 끝나기도 전에 표정이 이미 덮어씌워져서 빈틈이 사라집니다.
+        
+        let delayTime = actionDuration - MIX_DURATION - SAFETY_BUFFER;
+        if (delayTime < 0) delayTime = 0; // 혹시나 짧은 동작일 경우 0으로
+
         player.animationState.addAnimation(1, CONFIG.emoIdle, true, delayTime);
     }
 
