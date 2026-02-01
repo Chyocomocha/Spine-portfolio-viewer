@@ -53,13 +53,10 @@
 
 <script>
     let player;
-    
-    // ★ 1. 믹스 시간 (부드럽게 변하는 시간)
+    // 부드러운 전환 시간 (0.2초)
     const MIX_DURATION = 0.2;
-    
-    // ★ 2. 안전 시간 (이만큼 얼굴을 더 빨리 불러옵니다) - 중요!
-    // 0.1초 정도 미리 불러와서 '디폴트 얼굴'이 보일 틈을 없앱니다.
-    const SAFETY_BUFFER = 0.15; 
+    // 타이머 관리용 변수
+    let faceTimer = null;
 
     const CONFIG = {
         skelUrl: "./LD_Narin.skel.bytes", 
@@ -78,11 +75,9 @@
 
         success: function (p) {
             player = p;
-            
             // 기본 믹스 설정
             player.animationState.data.defaultMix = MIX_DURATION;
-
-            console.log("로딩 성공 (Buffer: " + SAFETY_BUFFER + "s)");
+            console.log("로딩 성공 (Start Hold & End Sync 적용)");
             resetToIdle(); 
         },
         error: function (p, e) {
@@ -93,6 +88,9 @@
     // --- 기능 함수 ---
     function resetToIdle() {
         if (!player) return;
+        // 기존 예약된 타이머가 있다면 취소 (광클 방지)
+        if (faceTimer) clearTimeout(faceTimer);
+        
         player.animationState.setAnimation(0, CONFIG.baseIdle, true);
         player.animationState.setAnimation(1, CONFIG.emoIdle, true);
     }
@@ -100,30 +98,41 @@
     function playAction(animName) {
         if (!player) return;
         
+        // 광클 시 이전 타이머 취소
+        if (faceTimer) clearTimeout(faceTimer);
+
         // 1. 몸 동작 실행 (Track 0)
+        // 몸은 0.2초 동안 서서히 변합니다.
         const entry = player.animationState.setAnimation(0, animName, false);
         const actionDuration = entry.animation.duration;
         
-        // 몸 동작 끝나면 Idle 예약 (자동 Mix)
+        // 몸 동작 끝나면 Idle 예약
         player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
 
         // 2. 얼굴 표정 처리 (Track 1)
-        // 시작할 때: 현재 표정을 부드럽게 지워서 액션 표정이 나오게 함
-        player.animationState.setEmptyAnimation(1, MIX_DURATION);
         
-        // ★★★ 핵심 수정: 타이밍 계산 ★★★
-        // (전체시간) - (믹스시간) - (안전시간)
-        // 믹스되는 시간보다 0.15초 더 빨리 표정을 투입합니다.
-        // 이렇게 하면 몸 동작이 끝나기도 전에 표정이 이미 덮어씌워져서 빈틈이 사라집니다.
-        
-        let delayTime = actionDuration - MIX_DURATION - SAFETY_BUFFER;
-        if (delayTime < 0) delayTime = 0; // 혹시나 짧은 동작일 경우 0으로
+        // ★★★ 핵심 수정 1: 들어갈 때 (Start) ★★★
+        // "바로 표정을 지우지 말고, 0.1초만 기다려!"
+        // 몸이 어느 정도 변한 뒤에 표정을 바꿔야 '기본 얼굴'이 안 보입니다.
+        faceTimer = setTimeout(() => {
+            // 0.1초 뒤에 현재 표정을 부드럽게(0.2s) 지웁니다.
+            // 이때는 이미 몸이 액션 동작을 하고 있어서 '액션 표정'이 드러납니다.
+            player.animationState.setEmptyAnimation(1, MIX_DURATION);
+            
+            // ★★★ 핵심 수정 2: 나올 때 (End) ★★★
+            // 아까 성공했던 로직: 액션 끝나기 0.2초 전에 미리 복귀 예약
+            // (이미 0.1초가 지났으므로 계산에서 고려)
+            let returnDelay = actionDuration - MIX_DURATION - 0.1;
+            if (returnDelay < 0) returnDelay = 0;
 
-        player.animationState.addAnimation(1, CONFIG.emoIdle, true, delayTime);
+            player.animationState.addAnimation(1, CONFIG.emoIdle, true, returnDelay);
+            
+        }, 100); // 100ms = 0.1초 대기
     }
 
     function playEmo(animName, loop) {
         if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
         player.animationState.setAnimation(1, animName, loop);
     }
 </script>
