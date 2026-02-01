@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Spine Project</title>
+<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/iife/spine-player.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/spine-player.css">
+<style>
+    /* 1. 배경 설정 (노션 다크모드 위장색 #191919) */
+    html, body { 
+        margin: 0; padding: 0; 
+        background-color: #191919 !important; 
+        color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; 
+    }
+
+    /* 플레이어 자체 배경 제거 */
+    .spine-player, .spine-player-canvas {
+        background-color: #191919 !important;
+    }
+
+    /* 2. 플레이어 크기 (지난번과 동일) */
+    #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
+
+    /* 3. 컨트롤 패널 디자인 (지난번 그 스타일!) */
+    .control-panel { 
+        width: 95%; max-width: 800px; 
+        display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; 
+    }
+
+    /* 버튼을 감싸는 반투명 박스 디자인 */
+    .track-group { 
+        background: rgba(0, 0, 0, 0.6); 
+        padding: 15px; border-radius: 8px; 
+        flex: 1; min-width: 250px; max-width: 400px; /* 너무 늘어지지 않게 */
+    }
+
+    /* 소제목 스타일 */
+    .group-title { 
+        font-weight: bold; margin-bottom: 10px; color: #ccc; 
+        text-transform: uppercase; font-size: 0.85em; 
+        border-bottom: 1px solid #555; padding-bottom: 5px; 
+    }
+
+    /* 버튼 그리드 배치 */
+    .btn-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); /* 반응형 그리드 */
+        gap: 6px; 
+    }
+    
+    /* 버튼 공통 디자인 */
+    button { 
+        padding: 10px 5px; cursor: pointer; 
+        background: #444; color: white; border: 1px solid #555; border-radius: 4px; 
+        font-size: 0.9em; transition: 0.2s; 
+    }
+    button:hover { background: #666; transform: translateY(-2px); border-color: #888; }
+    button:active { transform: translateY(0px); }
+    
+    /* 버튼별 색상 포인트 (원하는 대로 수정 가능) */
+    .btn-idle { background: #2b5c8a; border-color: #3e7cb3; } /* 파랑 계열 */
+    .btn-move { background: #2b8a5c; border-color: #3eb381; } /* 초록 계열 */
+    .btn-death { background: #8a2b2b; border-color: #b33e3e; } /* 빨강 계열 */
+</style>
+</head>
+<body>
+
+<div id="player-container"></div>
+
+<div class="control-panel">
+    <div class="track-group">
+        <div class="group-title">Base Actions</div>
+        <div class="btn-grid">
+            <button class="btn-idle" onclick="playAnim('idle')">Idle</button>
+            <button class="btn-move" onclick="playAnim('move')">Move</button>
+            <button class="btn-death" onclick="playAnim('death')">Death</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let player;
+
+    // ▼▼▼ 새 파일 이름으로 변경해주세요 ▼▼▼
+    const CONFIG = {
+        skelUrl: "./SD_Siphon.skel.bytes", 
+        atlasUrl: "./SD_Siphon.atlas.txt"
+    };
+
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        
+        showControls: true, // 타임라인 바 표시 (필요 없으면 false)
+        
+        // 배경 위장 설정
+        backgroundColor: "#191919", 
+        alpha: true,                  
+        premultipliedAlpha: true,
+
+        success: function (p) {
+            player = p;
+            player.animationState.data.defaultMix = 0.2; // 부드러운 전환
+            console.log("로딩 성공");
+            
+            // 자동 재생 (idle이 있다면)
+            try { player.animationState.setAnimation(0, "idle", true); } catch(e) {}
+        },
+        error: function (p, e) {
+            console.error("Error:", e);
+        }
+    });
+
+    // --- 기능 구현 ---
+    function playAnim(name) {
+        if (!player) return;
+
+        // Death는 1번만 재생(false), 나머지는 무한 반복(true)
+        let isLoop = (name !== 'death');
+
+        try {
+            player.animationState.setAnimation(0, name, isLoop);
+        } catch (e) {
+            console.warn("애니메이션 없음: " + name);
+        }
+    }
+</script>
+
+</body>
+</html>
