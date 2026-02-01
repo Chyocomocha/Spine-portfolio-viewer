@@ -7,14 +7,10 @@
 <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/iife/spine-player.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/spine-player.css">
 <style>
-    /* 배경은 일단 진한 회색 (캐릭터 확인용) */
-    body { margin: 0; padding: 0; background: #222; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+    /* 배경 투명 */
+    body { margin: 0; padding: 0; background: transparent; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
     #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
 
-    /* 에러 발생 시 화면에 표시하는 상자 */
-    #error-log { display: none; background: red; color: white; padding: 20px; border-radius: 10px; margin: 20px; font-weight: bold; }
-
-    /* 컨트롤 패널 스타일 */
     .control-panel { width: 95%; max-width: 800px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
     .track-group { background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
     .group-title { font-weight: bold; margin-bottom: 10px; color: #ccc; text-transform: uppercase; font-size: 0.85em; border-bottom: 1px solid #555; padding-bottom: 5px; }
@@ -29,7 +25,6 @@
 </head>
 <body>
 
-<div id="error-log"></div>
 <div id="player-container"></div>
 
 <div class="control-panel">
@@ -57,14 +52,13 @@
 </div>
 
 <script>
-    // ▼ 스크립트 자체가 로딩 안 됐을 때 에러 잡는 코드
-    window.onerror = function(msg, url, line) {
-        var log = document.getElementById("error-log");
-        log.style.display = "block";
-        log.innerHTML += "치명적 오류: " + msg + "<br>스파인 플레이어 스크립트 주소를 확인하세요.";
-    };
-
     let player;
+    // 믹스 시간
+    const MIX_DURATION = 0.2;
+    // 들어갈 때 지연 시간 (성공했던 값 유지)
+    const START_DELAY = 0.1;
+    
+    let faceTimer = null;
 
     const CONFIG = {
         skelUrl: "./LD_Hina.skel.bytes", 
@@ -73,53 +67,68 @@
         emoIdle: "Emo_Idle"      
     };
 
-    // 스파인 플레이어가 로드되었는지 확인
-    if (typeof spine === 'undefined') {
-        document.getElementById("error-log").style.display = "block";
-        document.getElementById("error-log").innerHTML = "Spine 라이브러리 로딩 실패! <br> 인터넷 연결을 확인하거나 주소의 버전(@4.2)을 확인하세요.";
-    } else {
-        new spine.SpinePlayer("player-container", {
-            skelUrl: CONFIG.skelUrl,
-            atlasUrl: CONFIG.atlasUrl,
-            
-            showControls: false,          
-            backgroundColor: "#222222", // 배경 진한 회색
-            alpha: true,                  
-            
-            // ★ 아까 화면에 나왔던 성공 설정 (True) ★
-            premultipliedAlpha: true,
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        showControls: false,          
+        backgroundColor: "#00000000", 
+        alpha: true,                  
+        premultipliedAlpha: true,
 
-            success: function (p) {
-                player = p;
-                console.log("로딩 성공");
-                resetToIdle(); 
-            },
-            error: function (p, e) {
-                var log = document.getElementById("error-log");
-                log.style.display = "block";
-                log.innerHTML = "플레이어 에러: " + e;
-            }
-        });
-    }
+        success: function (p) {
+            player = p;
+            player.animationState.data.defaultMix = MIX_DURATION;
+            console.log("로딩 성공 (Early Return Logic)");
+            resetToIdle(); 
+        },
+        error: function (p, e) {
+            console.error("Error:", e);
+        }
+    });
 
     // --- 기능 함수 ---
     function resetToIdle() {
         if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
         player.animationState.setAnimation(0, CONFIG.baseIdle, true);
         player.animationState.setAnimation(1, CONFIG.emoIdle, true);
     }
 
     function playAction(animName) {
         if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
+
+        // 1. 몸 동작 실행
         const entry = player.animationState.setAnimation(0, animName, false);
-        const duration = entry.animation.duration;
+        const actionDuration = entry.animation.duration;
+        
+        // 몸 동작 끝나면 Idle 예약
         player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
-        player.animationState.setEmptyAnimation(1, 0.1);
-        player.animationState.addAnimation(1, CONFIG.emoIdle, true, duration);
+
+        // 2. 얼굴 표정 처리 (핵심!)
+        
+        // [시작] 0.1초(100ms) 늦게 표정을 바꿈 -> 들어갈 때 디폴트 얼굴 방지 (성공함)
+        faceTimer = setTimeout(() => {
+            player.animationState.setEmptyAnimation(1, MIX_DURATION);
+            
+            // [끝] 돌아오는 타이밍 계산
+            // 공식: 전체시간 - 믹스시간 - 시작지연시간 - ★추가 안전장치(0.15초)★
+            // 즉, 몸 동작이 끝나기 훨씬 전(약 0.45초 전)부터 표정 복귀를 시작합니다.
+            // 이렇게 하면 몸이 멈출 때쯤엔 이미 완벽하게 Idle 표정이 되어 있습니다.
+            
+            let returnDelay = actionDuration - MIX_DURATION - START_DELAY - 0.15;
+            
+            // 동작이 너무 짧아서 시간이 마이너스가 되면 즉시 복귀
+            if (returnDelay < 0) returnDelay = 0;
+
+            player.animationState.addAnimation(1, CONFIG.emoIdle, true, returnDelay);
+            
+        }, (START_DELAY * 1000)); // 100ms 대기
     }
 
     function playEmo(animName, loop) {
         if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
         player.animationState.setAnimation(1, animName, loop);
     }
 </script>
