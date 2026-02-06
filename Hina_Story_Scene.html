@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spine Portfolio Viewer</title>
+<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/iife/spine-player.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/spine-player.css">
+<style>
+    /* 배경 투명 */
+    body { margin: 0; padding: 0; background: #191919; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+    #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
+
+    .control-panel { width: 95%; max-width: 800px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+    .track-group { background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
+    .group-title { font-weight: bold; margin-bottom: 10px; color: #ccc; text-transform: uppercase; font-size: 0.85em; border-bottom: 1px solid #555; padding-bottom: 5px; }
+    .btn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
+    
+    button { padding: 8px 5px; cursor: pointer; background: #444; color: white; border: 1px solid #555; border-radius: 4px; font-size: 0.85em; transition: 0.2s; }
+    button:hover { background: #666; transform: translateY(-2px); border-color: #888; }
+</style>
+</head>
+<body>
+
+<div id="player-container"></div>
+
+<div class="control-panel">
+    <div class="track-group">
+        <div class="group-title">Emotions</div>
+        <div class="btn-grid">
+            <button onclick="playEmo('Emo_Idle', true)">Emo Idle</button>
+            <button onclick="playEmo('Emo_001', false)">Emo 1</button>
+            <button onclick="playEmo('Emo_002', false)">Emo 2</button>
+            <button onclick="playEmo('Emo_003', false)">Emo 3</button>
+            <button onclick="playEmo('Emo_004', false)">Emo 4</button>
+            <button onclick="playEmo('Emo_005', false)">Emo 5</button>
+            <button onclick="playEmo('Emo_006', false)">Emo 6</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let player;
+    // 믹스 시간
+    const MIX_DURATION = 0.2;
+    // 들어갈 때 지연 시간 (성공했던 값 유지)
+    const START_DELAY = 0.1;
+    
+    let faceTimer = null;
+
+    const CONFIG = {
+        skelUrl: "./Hina_Story_Scene.skel.bytes", 
+        atlasUrl: "./Hina_Story_Scene.atlas.txt",
+        baseIdle: "Idle",        
+        emoIdle: "Emo_Idle"      
+    };
+
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        showControls: false,          
+        backgroundColor: "#00000000", 
+        alpha: true,                  
+        premultipliedAlpha: true,
+
+        success: function (p) {
+            player = p;
+            player.animationState.data.defaultMix = MIX_DURATION;
+            console.log("로딩 성공 (Face Only Mode)");
+            resetToIdle(); 
+        },
+        error: function (p, e) {
+            console.error("Error:", e);
+        }
+    });
+
+    // --- 기능 함수 ---
+    function resetToIdle() {
+        if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
+        // 몸은 기본 Idle로 고정 재생
+        player.animationState.setAnimation(0, CONFIG.baseIdle, true);
+        player.animationState.setAnimation(1, CONFIG.emoIdle, true);
+    }
+
+    function playEmo(animName, loop) {
+        if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
+        // 얼굴 트랙(1번)만 조작
+        player.animationState.setAnimation(1, animName, loop);
+    }
+</script>
+
+</body>
+</html>
