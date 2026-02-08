@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spine Portfolio Viewer</title>
+<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/iife/spine-player.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/spine-player.css">
+<style>
+    /* 배경 투명 */
+    body { margin: 0; padding: 0; background: #191919; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+    
+    /* [추가됨] 드래그 가능한 커서 표시 & 모바일 스크롤 방지 */
+    #player-container { width: 100%; height: 75vh; margin-bottom: 10px; cursor: grab; touch-action: none; }
+    #player-container:active { cursor: grabbing; }
+
+    .control-panel { width: 95%; max-width: 800px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+    .track-group { background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
+    .group-title { font-weight: bold; margin-bottom: 10px; color: #ccc; text-transform: uppercase; font-size: 0.85em; border-bottom: 1px solid #555; padding-bottom: 5px; }
+    .btn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
+    
+    button { padding: 8px 5px; cursor: pointer; background: #444; color: white; border: 1px solid #555; border-radius: 4px; font-size: 0.85em; transition: 0.2s; }
+    button:hover { background: #666; transform: translateY(-2px); border-color: #888; }
+    
+    .btn-idle { background: #2b5c8a; border-color: #3e7cb3; }
+    .btn-action { background: #8a2b2b; border-color: #b33e3e; }
+</style>
+</head>
+<body>
+
+<div id="player-container"></div>
+
+<div class="control-panel">
+    <div class="track-group">
+        <div class="group-title">Base Actions</div>
+        <div class="btn-grid">
+            <button class="btn-idle" onclick="resetToIdle()">Return Idle</button>
+            <button class="btn-action" onclick="playAction('Action_001')">Action 1</button>
+            <button class="btn-action" onclick="playAction('Action_002')">Action 2</button>
+            <button class="btn-action" onclick="playAction('Signature')">Signature</button>
+        </div>
+    </div>
+    <div class="track-group">
+        <div class="group-title">Emotions</div>
+        <div class="btn-grid">
+            <button onclick="playEmo('Emo_Idle', true)">Emo Idle</button>
+            <button onclick="playEmo('Emo_001', false)">Emo 1</button>
+            <button onclick="playEmo('Emo_002', false)">Emo 2</button>
+            <button onclick="playEmo('Emo_003', false)">Emo 3</button>
+            <button onclick="playEmo('Emo_004', false)">Emo 4</button>
+            <button onclick="playEmo('Emo_005', false)">Emo 5</button>
+            <button onclick="playEmo('Emo_006', false)">Emo 6</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let player;
+    // 믹스 시간
+    const MIX_DURATION = 0.2;
+    // 들어갈 때 지연 시간 (성공했던 값 유지)
+    const START_DELAY = 0.1;
+    
+    let faceTimer = null;
+
+    // --- [추가됨] 드래그 IK 관련 변수 ---
+    let isTouching = false;
+    let faceBone = null;
+    let initialFaceX = 0;
+    let initialFaceY = 0;
+    let inputX = 0;
+    let inputY = 0;
+    const SENSITIVITY = 1.0; // 드래그 감도 (1.0 = 1:1)
+
+    const CONFIG = {
+        skelUrl: "./LD_Narin.skel.bytes", 
+        atlasUrl: "./LD_Narin.atlas.txt",
+        baseIdle: "Idle",        
+        emoIdle: "Emo_Idle",
+        // --- [추가됨] 터치 인터랙션 설정 ---
+        touchStart: "Touch_Idle_Start",
+        touchLoop:  "Touch_Idle",
+        touchEnd:   "Touch_Idle_End",
+        boneName:   "face_con" // 움직일 뼈 이름
+    };
+
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        showControls: true,          
+        backgroundColor: "#00000000", 
+        alpha: true,                  
+        premultipliedAlpha: true,
+
+        success: function (p) {
+            player = p;
+            player.animationState.data.defaultMix = MIX_DURATION;
+
+            // --- [추가됨] 제어할 뼈 찾기 ---
+            faceBone = player.skeleton.findBone(CONFIG.boneName);
+            if (faceBone) {
+                initialFaceX = faceBone.x;
+                initialFaceY = faceBone.y;
+                console.log("IK Bone Found:", CONFIG.boneName);
+            } else {
+                console.error("IK Bone Not Found:", CONFIG.boneName);
+            }
+
+            console.log("로딩 성공 (Base + Touch IK Integrated)");
+            resetToIdle(); 
+        },
+        
+        // --- [추가됨] 매 프레임 실행: 뼈 위치 업데이트 ---
+        update: function (player, delta) {
+            if (!faceBone) return;
+
+            if (isTouching) {
+                // 터치 중: 마우스 방향으로 뼈 이동
+                faceBone.x = initialFaceX + (inputX * SENSITIVITY);
+                faceBone.y = initialFaceY + (-inputY * SENSITIVITY); // Y축 반전
+            } else {
+                // 터치 끝: 원래 위치로 부드럽게 복귀
+                faceBone.x += (initialFaceX - faceBone.x) * 0.1;
+                faceBone.y += (initialFaceY - faceBone.y) * 0.1;
+            }
+        },
+
+        error: function (p, e) {
+            console.error("Error:", e);
+        }
+    });
+
+    // --- 기존 기능 함수 (수정 없음) ---
+    function resetToIdle() {
+        if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
+        player.animationState.setAnimation(0, CONFIG.baseIdle, true);
+        player.animationState.setAnimation(1, CONFIG.emoIdle, true);
+    }
+
+    function playAction(animName) {
+        if (!player) return;
+        if (faceTimer) clearTimeout(faceTimer);
+
+        // 1. 몸 동작 실행
+        const entry = player.animationState.setAnimation(0, animName, false);
+        const actionDuration = entry.animation.duration;
+        
+        // 몸 동작 끝나면 Idle 예약
+        player.animationState.addAnimation(0, CONFIG.baseIdle, true, 0);
+
+        // 2. 얼굴 표정 처리
+        faceTimer = setTimeout(() => {
+            player.animationState.setEmptyAnimation(1, MIX_DURATION);
+            
+            let returnDelay = actionDuration - MIX_DURATION - START_DELAY - 0.15;
+            if (returnDelay < 0) returnDelay = 0;
+
+            player.animationState.addAnimation(1, CONFIG.emoIdle, true, returnDelay);
+            
+        }, (START_DELAY * 1000)); 
+    }
+
+    function playEmo(animName, loop) {
+        if (!player) return;
+        if (isTouching) return; // 터치 중에는 버튼 간섭 방지
+        if (faceTimer) clearTimeout(faceTimer);
+        player.animationState.setAnimation(1, animName, loop);
+    }
+
+    // --- [추가됨] 터치/드래그 이벤트 핸들러 ---
+    const container = document.getElementById("player-container");
+
+    function startInput(e) {
+        if (!player || isTouching) return;
+        isTouching = true;
+        
+        // 기존 액션 타이머가 있다면 취소 (터치 우선)
+        if (faceTimer) clearTimeout(faceTimer); 
+
+        updateInputPosition(e);
+
+        // 애니메이션: Start -> Loop 예약
+        player.animationState.setAnimation(1, CONFIG.touchStart, false);
+        player.animationState.addAnimation(1, CONFIG.touchLoop, true, 0);
+    }
+
+    function endInput() {
+        if (!player || !isTouching) return;
+        isTouching = false;
+        inputX = 0; 
+        inputY = 0;
+
+        // 애니메이션: End -> Emo_Idle 복귀
+        player.animationState.setAnimation(1, CONFIG.touchEnd, false);
+        player.animationState.addAnimation(1, CONFIG.emoIdle, true, 0);
+    }
+
+    function moveInput(e) {
+        if (isTouching) {
+            if(e.type === 'touchmove') e.preventDefault(); 
+            updateInputPosition(e);
+        }
+    }
+
+    function updateInputPosition(e) {
+        const rect = container.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        
+        let clientX, clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+
+        inputX = (clientX - rect.left) - centerX;
+        inputY = (clientY - rect.top) - centerY;
+    }
+
+    // 이벤트 등록
+    container.addEventListener("mousedown", startInput);
+    window.addEventListener("mousemove", moveInput);
+    window.addEventListener("mouseup", endInput);
+
+    container.addEventListener("touchstart", startInput, {passive: false});
+    window.addEventListener("touchmove", moveInput, {passive: false});
+    window.addEventListener("touchend", endInput);
+
+</script>
+
+</body>
+</html>
