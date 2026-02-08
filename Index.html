@@ -56,11 +56,8 @@
 
 <script>
     let player;
-    // 믹스 시간
     const MIX_DURATION = 0.2;
-    // 들어갈 때 지연 시간
     const START_DELAY = 0.1;
-    
     let faceTimer = null;
 
     // --- [IK 제어 변수] ---
@@ -71,7 +68,7 @@
     let inputX = 0;
     let inputY = 0;
     
-    // 감도 설정 (너무 빠르면 줄이세요)
+    // 감도 설정
     const SENSITIVITY = 1.5; 
 
     const CONFIG = {
@@ -79,7 +76,6 @@
         atlasUrl: "./LD_Narin.atlas.txt",
         baseIdle: "Idle",        
         emoIdle: "Emo_Idle",
-        // 터치 인터랙션 애니메이션
         touchStart: "Touch_Idle_Start",
         touchLoop:  "Touch_Idle",
         touchEnd:   "Touch_Idle_End",
@@ -89,7 +85,7 @@
     new spine.SpinePlayer("player-container", {
         skelUrl: CONFIG.skelUrl,
         atlasUrl: CONFIG.atlasUrl,
-        showControls: false, // 클릭 시 일시정지 문제 방지를 위해 UI 숨김 권장 (커스텀 버튼 있으므로)
+        showControls: false, 
         backgroundColor: "#00000000", 
         alpha: true,                  
         premultipliedAlpha: true,
@@ -98,7 +94,6 @@
             player = p;
             player.animationState.data.defaultMix = MIX_DURATION;
 
-            // [IK] 뼈 찾기
             faceBone = player.skeleton.findBone(CONFIG.boneName);
             if (faceBone) {
                 initialFaceX = faceBone.x;
@@ -109,18 +104,16 @@
             resetToIdle(); 
         },
         
-        // --- [핵심] 매 프레임 위치 업데이트 (축 변경 적용됨) ---
+        // --- [핵심 수정] 매 프레임 위치 업데이트 (축 변경 + 방향 반전) ---
         update: function (player, delta) {
             if (!faceBone) return;
 
             if (isTouching) {
-                // ★ 축 변경 적용 (X -> Y, Y -> X) ★
-                // 마우스 좌우(inputX) -> 뼈 상하(faceBone.y)로 매핑
-                // 마우스 상하(inputY) -> 뼈 좌우(faceBone.x)로 매핑
+                // 1. 축 변경: inputX -> Y에 적용, inputY -> X에 적용
+                // 2. 방향 반전: 값 앞에 마이너스(-) 추가
                 
-                // (만약 방향이 반대라면 + 를 - 로 바꾸세요)
-                faceBone.x = initialFaceX + (inputY * SENSITIVITY); 
-                faceBone.y = initialFaceY + (inputX * SENSITIVITY); 
+                faceBone.x = initialFaceX + (-inputY * SENSITIVITY); 
+                faceBone.y = initialFaceY + (-inputX * SENSITIVITY); 
             } else {
                 // 원래 위치로 복귀
                 faceBone.x += (initialFaceX - faceBone.x) * 0.1;
@@ -169,8 +162,7 @@
     const container = document.getElementById("player-container");
 
     function startInput(e) {
-        // ★ 중요: 스파인 플레이어의 일시정지 클릭 이벤트 차단
-        e.stopPropagation(); 
+        e.stopPropagation(); // 일시정지 차단
         
         if (!player || isTouching) return;
         
@@ -178,7 +170,6 @@
         if (faceTimer) clearTimeout(faceTimer); 
         updateInputPosition(e);
 
-        // 애니메이션: Start -> Loop 예약
         player.animationState.setAnimation(1, CONFIG.touchStart, false);
         player.animationState.addAnimation(1, CONFIG.touchLoop, true, 0);
     }
@@ -186,20 +177,19 @@
     function endInput(e) {
         if (!player || !isTouching) return;
         
-        if(e) e.stopPropagation(); // 이벤트 전파 차단
+        if(e) e.stopPropagation();
 
         isTouching = false;
         inputX = 0; 
         inputY = 0;
 
-        // 애니메이션: End -> Emo_Idle 복귀
         player.animationState.setAnimation(1, CONFIG.touchEnd, false);
         player.animationState.addAnimation(1, CONFIG.emoIdle, true, 0);
     }
 
     function moveInput(e) {
         if (isTouching) {
-            e.stopPropagation(); // 스파인 드래그 차단
+            e.stopPropagation();
             if(e.type === 'touchmove') e.preventDefault(); 
             updateInputPosition(e);
         }
@@ -219,12 +209,11 @@
             clientY = e.clientY;
         }
 
-        // 중앙 기준 좌표 계산
         inputX = (clientX - rect.left) - centerX;
         inputY = (clientY - rect.top) - centerY;
     }
 
-    // ★ { capture: true } 옵션으로 이벤트 우선권 확보 (일시정지 문제 해결) ★
+    // 이벤트 우선권 확보
     container.addEventListener("mousedown", startInput, { capture: true });
     window.addEventListener("mousemove", moveInput, { capture: true });
     window.addEventListener("mouseup", endInput, { capture: true });
