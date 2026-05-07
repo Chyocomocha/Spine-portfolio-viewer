@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Spine Project</title>
+<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/iife/spine-player.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/spine-player.css">
+<style>
+    /* 1. 배경 설정 (노션 다크모드 위장색 #191919) */
+    html, body { 
+        margin: 0; padding: 0; 
+        background-color: #191919 !important; 
+        color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; 
+    }
+
+    /* 플레이어 자체 배경 제거 */
+    .spine-player, .spine-player-canvas {
+        background-color: #191919 !important;
+    }
+
+    /* 2. 플레이어 크기 */
+    #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
+
+    /* 3. 컨트롤 패널 디자인 */
+    .control-panel { 
+        width: 95%; max-width: 800px; 
+        display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; 
+    }
+
+    /* 버튼을 감싸는 반투명 박스 디자인 */
+    .track-group { 
+        background: rgba(0, 0, 0, 0.6); 
+        padding: 15px; border-radius: 8px; 
+        flex: 1; min-width: 250px; max-width: 800px; /* 버튼 개수가 많아져 최대 너비 여유롭게 조정 */
+    }
+
+    /* 소제목 스타일 */
+    .group-title { 
+        font-weight: bold; margin-bottom: 10px; color: #ccc; 
+        text-transform: uppercase; font-size: 0.85em; 
+        border-bottom: 1px solid #555; padding-bottom: 5px; 
+    }
+
+    /* 버튼 그리드 배치 */
+    .btn-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); /* 반응형 그리드 */
+        gap: 6px; 
+    }
+    
+    /* 버튼 공통 디자인 (색상 통일) */
+    button { 
+        padding: 10px 5px; cursor: pointer; 
+        background: #444; color: white; border: 1px solid #555; border-radius: 4px; 
+        font-size: 0.9em; transition: 0.2s; 
+    }
+    button:hover { background: #666; transform: translateY(-2px); border-color: #888; }
+    button:active { transform: translateY(0px); }
+</style>
+</head>
+<body>
+
+<div id="player-container"></div>
+
+<div class="control-panel">
+    <div class="track-group">
+        <div class="group-title">Animations</div>
+        <div class="btn-grid">
+            <button onclick="playAnim('Angry')">Angry</button>
+            <button onclick="playAnim('Bol1')">Bol1</button>
+            <button onclick="playAnim('Bol2')">Bol2</button>
+            <button onclick="playAnim('Eat')">Eat</button>
+            <button onclick="playAnim('Happy')">Happy</button>
+            <button onclick="playAnim('Idle')">Idle</button>
+            <button onclick="playAnim('Sad')">Sad</button>
+            <button onclick="playAnim('Smile')">Smile</button>
+            <button onclick="playAnim('Surprise')">Surprise</button>
+            <button onclick="playAnim('Upset')">Upset</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let player;
+
+    // ▼▼▼ 파일 경로 확인 ▼▼▼
+    const CONFIG = {
+        skelUrl: "./Cola.skel.bytes", 
+        atlasUrl: "./Cola.atlas.txt"
+    };
+
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        
+        showControls: true, // 타임라인 바 표시
+        
+        // 배경 위장 설정
+        backgroundColor: "#191919", 
+        alpha: true,                  
+        premultipliedAlpha: true,
+
+        success: function (p) {
+            player = p;
+            
+            // 애니메이션 믹스(전환) 시간을 0으로 설정하여 즉시 전환
+            player.animationState.data.defaultMix = 0; 
+            console.log("로딩 성공");
+            
+            // 자동 재생 (초기 상태를 Idle로 설정)
+            try { player.animationState.setAnimation(0, "Idle", true); } catch(e) {}
+        },
+        error: function (p, e) {
+            console.error("Error:", e);
+        }
+    });
+
+    // --- 기능 구현 ---
+    function playAnim(name) {
+        if (!player) return;
+
+        // 모든 애니메이션을 기본적으로 무한 반복(true) 하도록 설정
+        try {
+            player.animationState.setAnimation(0, name, true);
+        } catch (e) {
+            console.warn("애니메이션 없음: " + name);
+        }
+    }
+</script>
+
+</body>
+</html>
