@@ -67,7 +67,7 @@
     <div class="track-group">
         <div class="group-title">Animations</div>
         <div class="btn-grid">
-            <button onclick="playAnim('Idle')">Idle</button>
+            <button onclick="playAnim('idle')">Idle</button>
             <button onclick="playAnim('Action')">Action</button>
         </div>
     </div>
@@ -100,7 +100,7 @@
             console.log("로딩 성공");
             
             // 처음 로드될 때 Idle 무한 반복
-            try { player.animationState.setAnimation(0, "Idle", true); } catch(e) {}
+            try { player.animationState.setAnimation(0, "idle", true); } catch(e) {}
         },
         error: function (p, e) {
             console.error("Error:", e);
@@ -118,7 +118,7 @@
                 
                 // 2. Action이 끝나면 자동으로 Idle 애니메이션을 무한 반복(loop: true)하도록 대기열에 추가
                 // 마지막 인자 0은 이전 애니메이션이 끝난 직후에 실행됨을 의미합니다.
-                player.animationState.addAnimation(0, "Idle", true, 0);
+                player.animationState.addAnimation(0, "idle", true, 0);
             } else {
                 // 그 외(Idle)는 즉시 무한 반복 재생
                 player.animationState.setAnimation(0, name, true);
