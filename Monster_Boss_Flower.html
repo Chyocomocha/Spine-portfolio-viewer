@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Spine Project</title>
+<script src="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/iife/spine-player.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2/dist/spine-player.css">
+<style>
+    /* 배경 설정 */
+    html, body { 
+        margin: 0; padding: 0; 
+        background-color: #191919 !important; 
+        color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; 
+    }
+
+    /* 플레이어 자체 배경 제거 */
+    .spine-player, .spine-player-canvas {
+        background-color: #191919 !important;
+    }
+
+    /* 플레이어 크기 */
+    #player-container { width: 100%; height: 75vh; margin-bottom: 10px; }
+
+    /* 컨트롤 패널 디자인 */
+    .control-panel { 
+        width: 95%; max-width: 800px; 
+        display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; 
+    }
+
+    /* 버튼 그룹 박스 */
+    .track-group { 
+        background: rgba(0, 0, 0, 0.6); 
+        padding: 15px; border-radius: 8px; 
+        flex: 1; min-width: 250px; max-width: 800px; 
+    }
+
+    /* 소제목 */
+    .group-title { 
+        font-weight: bold; margin-bottom: 10px; color: #ccc; 
+        text-transform: uppercase; font-size: 0.85em; 
+        border-bottom: 1px solid #555; padding-bottom: 5px; 
+    }
+
+    /* 버튼 그리드 */
+    .btn-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); 
+        gap: 6px; 
+    }
+    
+    /* 버튼 공통 디자인 */
+    button { 
+        padding: 10px 5px; cursor: pointer; 
+        background: #444; color: white; border: 1px solid #555; border-radius: 4px; 
+        font-size: 0.9em; transition: 0.2s; 
+    }
+    button:hover { background: #666; transform: translateY(-2px); border-color: #888; }
+    button:active { transform: translateY(0px); }
+</style>
+</head>
+<body>
+
+<div id="player-container"></div>
+
+<div class="control-panel">
+    <div class="track-group">
+        <div class="group-title">Animations</div>
+        <div class="btn-grid">
+            <button onclick="playAnim('idle1')">idle1</button>
+            <button onclick="playAnim('idle2')">idle2</button>
+            <button onclick="playAnim('attack1')">attack1</button>
+            <button onclick="playAnim('attack2')">attack2</button>
+            <button onclick="playAnim('change1')">change1</button>
+            <button onclick="playAnim('change2')">change2</button>
+            <button onclick="playAnim('death1')">death1</button>
+            <button onclick="playAnim('death2')">death2</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let player;
+
+    const CONFIG = {
+        skelUrl: "./Monster_Boss_Flower.skel.bytes", // 파일 경로 입력
+        atlasUrl: "Monster_Boss_Flower.atlas.txt" // 파일 경로 입력
+    };
+
+    new spine.SpinePlayer("player-container", {
+        skelUrl: CONFIG.skelUrl,
+        atlasUrl: CONFIG.atlasUrl,
+        
+        showControls: true, 
+        
+        backgroundColor: "#191919", 
+        alpha: true,                  
+        premultipliedAlpha: true,
+
+        success: function (p) {
+            player = p;
+            
+            // 믹스값 기본 유지 (부드러운 전환)
+            player.animationState.data.defaultMix = 0.2; 
+            
+            // 초기 애니메이션은 idle1로 설정
+            try { player.animationState.setAnimation(0, "idle1", true); } catch(e) {}
+        },
+        error: function (p, e) {
+            console.error("Error:", e);
+        }
+    });
+
+    // --- 애니메이션 로직 구현 ---
+    function playAnim(name) {
+        if (!player) return;
+
+        try {
+            if (name === 'attack1') {
+                player.animationState.setAnimation(0, name, false);
+                player.animationState.addAnimation(0, "idle1", true, 0); // 끝나면 idle1
+                
+            } else if (name === 'attack2') {
+                player.animationState.setAnimation(0, name, false);
+                player.animationState.addAnimation(0, "idle2", true, 0); // 끝나면 idle2
+                
+            } else if (name === 'change1') {
+                player.animationState.setAnimation(0, name, false);
+                player.animationState.addAnimation(0, "idle2", true, 0); // 끝나면 idle2
+                
+            } else if (name === 'change2') {
+                player.animationState.setAnimation(0, name, false);
+                player.animationState.addAnimation(0, "idle1", true, 0); // 끝나면 idle1
+                
+            } else if (name === 'death1' || name === 'death2') {
+                // 죽음 애니메이션은 1번 재생 후 멈춤
+                player.animationState.setAnimation(0, name, false);
+                
+            } else {
+                // idle1, idle2 등은 무한 반복
+                player.animationState.setAnimation(0, name, true);
+            }
+        } catch (e) {
+            console.warn("애니메이션 없음: " + name);
+        }
+    }
+</script>
+
+</body>
+</html>
