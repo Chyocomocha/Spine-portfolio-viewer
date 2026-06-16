@@ -5,10 +5,11 @@
 
     var spineNamespace = window.spine;
     var OriginalSpinePlayer = spineNamespace.SpinePlayer;
-    var LOAD_DELAY = 650;
-    var DISPOSE_DELAY = 50;
+    var LOAD_DELAY = 180;
+    var DISPOSE_DELAY = 80;
     var RETRY_DELAY = 800;
-    var MIN_VISIBLE_RATIO = 0.1;
+    var MIN_VISIBLE_RATIO = 0.01;
+    var MIN_VISIBLE_PIXELS = 120;
 
     function ManagedSpinePlayer(elementOrId, config) {
         var manager = this;
@@ -23,6 +24,7 @@
         var disposeTimer = null;
         var retryTimer = null;
         var observer = null;
+        var isReleasingContext = false;
 
         manager.player = null;
 
@@ -33,11 +35,50 @@
 
         function clearContainer() {
             if (!container) return;
+            releaseCanvasContexts();
             try {
                 container.replaceChildren();
             } catch (e) {
                 container.innerHTML = "";
             }
+        }
+
+        function releaseCanvasContexts() {
+            if (!container) return;
+
+            var canvases = container.querySelectorAll("canvas");
+            canvases.forEach(function (canvas) {
+                var gl = null;
+                try {
+                    gl = canvas.getContext("webgl")
+                        || canvas.getContext("webgl2")
+                        || canvas.getContext("experimental-webgl");
+                } catch (e) {
+                    gl = null;
+                }
+
+                if (!gl) return;
+
+                var loseContext = null;
+                try {
+                    loseContext = gl.getExtension("WEBGL_lose_context");
+                } catch (e) {
+                    loseContext = null;
+                }
+
+                if (loseContext && typeof loseContext.loseContext === "function") {
+                    try {
+                        isReleasingContext = true;
+                        loseContext.loseContext();
+                    } catch (e) {
+                        // Context release is best-effort; DOM cleanup still follows.
+                    } finally {
+                        window.setTimeout(function () {
+                            isReleasingContext = false;
+                        }, 0);
+                    }
+                }
+            });
         }
 
         function destroyPlayer() {
@@ -54,9 +95,15 @@
 
             if (realPlayer && typeof realPlayer.dispose === "function") {
                 try {
+                    isReleasingContext = true;
+                    releaseCanvasContexts();
                     realPlayer.dispose();
                 } catch (e) {
                     console.warn("Spine player dispose failed:", e);
+                } finally {
+                    window.setTimeout(function () {
+                        isReleasingContext = false;
+                    }, 0);
                 }
             }
 
@@ -194,9 +241,12 @@
         } else {
             observer = new IntersectionObserver(function (entries) {
                 var entry = entries[0];
-                setVisible(entry && entry.isIntersecting && entry.intersectionRatio >= MIN_VISIBLE_RATIO);
+                var visiblePixels = entry && entry.intersectionRect ? entry.intersectionRect.height : 0;
+                setVisible(entry && entry.isIntersecting && (
+                    entry.intersectionRatio >= MIN_VISIBLE_RATIO || visiblePixels >= MIN_VISIBLE_PIXELS
+                ));
             }, { threshold: [0, 0.01, 0.1] });
-            observer.observe(container);
+            observer.observe(document.body);
         }
 
         document.addEventListener("visibilitychange", function () {
@@ -212,6 +262,7 @@
 
         if (container) {
             container.addEventListener("webglcontextlost", function (event) {
+                if (isReleasingContext) return;
                 event.preventDefault();
                 destroyPlayer();
                 scheduleRetry();
