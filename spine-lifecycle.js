@@ -18,6 +18,7 @@
         var isVisible = false;
         var isLoading = false;
         var isDisposed = false;
+        var disposeAfterLoad = false;
         var loadTimer = null;
         var disposeTimer = null;
         var retryTimer = null;
@@ -42,7 +43,14 @@
         function destroyPlayer() {
             loadTimer = clearTimer(loadTimer);
             retryTimer = clearTimer(retryTimer);
+
+            if (isLoading && !realPlayer) {
+                disposeAfterLoad = true;
+                return;
+            }
+
             isLoading = false;
+            disposeAfterLoad = false;
 
             if (realPlayer && typeof realPlayer.dispose === "function") {
                 try {
@@ -71,6 +79,7 @@
             if (!container || isDisposed || !isVisible || realPlayer || isLoading) return;
 
             isLoading = true;
+            disposeAfterLoad = false;
 
             var managedConfig = {};
             Object.keys(originalConfig).forEach(function (key) {
@@ -81,19 +90,36 @@
                 isLoading = false;
                 realPlayer = player;
                 manager.player = player;
-
-                if (typeof originalConfig.success === "function") {
-                    originalConfig.success(player);
-                }
+                disposeAfterLoad = false;
 
                 if (!isVisible || isDisposed) {
                     disposeTimer = clearTimer(disposeTimer);
                     disposeTimer = window.setTimeout(destroyPlayer, 0);
+                    return;
+                }
+
+                if (typeof originalConfig.success === "function") {
+                    originalConfig.success(player);
                 }
             };
 
             managedConfig.error = function (player, error) {
+                var wasWaitingForDispose = disposeAfterLoad;
                 isLoading = false;
+                disposeAfterLoad = false;
+
+                if (wasWaitingForDispose) {
+                    clearContainer();
+                    if (isVisible && !isDisposed) {
+                        scheduleRetry();
+                    }
+                    return;
+                }
+
+                if (!isVisible || isDisposed) {
+                    clearContainer();
+                    return;
+                }
 
                 if (typeof originalConfig.error === "function") {
                     originalConfig.error(player, error);
@@ -111,6 +137,7 @@
                 new OriginalSpinePlayer(elementOrId, managedConfig);
             } catch (e) {
                 isLoading = false;
+                disposeAfterLoad = false;
                 if (typeof originalConfig.error === "function") {
                     originalConfig.error(null, e);
                 } else {
@@ -149,6 +176,8 @@
             disposeTimer = clearTimer(disposeTimer);
             retryTimer = clearTimer(retryTimer);
             if (observer) observer.disconnect();
+            isLoading = false;
+            disposeAfterLoad = false;
             destroyPlayer();
         };
 
